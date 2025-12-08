@@ -1,4 +1,4 @@
-# Загрузка библиотек
+# Importing libraries
 from bs4 import BeautifulSoup
 import requests
 import pandas as pd
@@ -18,28 +18,28 @@ class repo:
         self.name = name
 
     def downloading(self):
-        str = 'https://kase.kz/ru/indexes-and-indicators/repo/{}'   # шаблон для URL
+        str = 'https://kase.kz/ru/indexes-and-indicators/repo/{}'   # URL format template
         url = str.format(self.name)     
    
-        soup = BeautifulSoup(requests.get(url).text, 'lxml')  # Доступ к сайту
+        soup = BeautifulSoup(requests.get(url).text, 'lxml')  # Accessing the website
         table = soup.find('c-table')
         final_data = []
-        for tr in table.find_all('tr')[:-1]:  # Выводит текст таблицы по индикатору
+        for tr in table.find_all('tr')[:-1]:  # Extracting table text for the selected indicator
             final_data.append(re.split(r'\s{2,}', tr.text)[0:2])
             df = pd.DataFrame(final_data).T
             new_header = df.iloc[0]
-            df = df[1:] 
+            df = df[1:]
             df.columns = new_header
             df = df.rename(index={1 : 0})
             
-            # Настройка параметров для Selenium-a
-        chromedriver = Service(ChromeDriverManager().install())         # Этот код именно для хрома, если нужно, могу сделать вторую версию для файрфокса
+        # Selenium setup settings
+        chromedriver = Service(ChromeDriverManager().install())  # Browser driver (Chrome version), can make Firefox separately if needed
         options = webdriver.ChromeOptions() 
         options.add_experimental_option("detach", True)
         options.add_experimental_option('excludeSwitches', ['enable-logging'])
         browser = webdriver.Chrome(service=chromedriver, options=options)
         browser.get(url)
-        browser.find_element(By.XPATH, "//button[span[text()='Скачать файл']]").click()  #Скачивает файлы за сегодняшний день
+        browser.find_element(By.XPATH, "//button[span[text()='Скачать файл']]").click()  # Downloads today’s files
         time.sleep(2)
         return df
 
@@ -51,18 +51,20 @@ class repo:
 
     
     def preprocessing(self, df):
-        download_dir = r"C:\Users\user\Downloads"                         # !!!! Поменять под расположение папки Downloads
+        download_dir = r"C:\Users\user\Downloads"  # !!!! Change this to your actual Downloads folder path
         list_of_files = glob.glob(os.path.join(download_dir, "*"))
         list_of_files.sort(key=os.path.getctime, reverse=True)
         last_file = list_of_files[0]
-        df2 = pd.read_excel(last_file, header = 1) # открываем файлы
-        # Преобразуем имена колонок к PEP-8
+        df2 = pd.read_excel(last_file, header = 1)  # Opening downloaded file
+
+        # Converting column names to PEP-8 style
         df.columns = [self.to_pep_8(col) for col in df.columns]
         df2.columns = [self.to_pep_8(col) for col in df2.columns]
-        # Удаляем дубликаты колонок из второго датафрейма перед объединением
+
+        # Removing duplicate columns before merging
         overlap_cols = set(df2.columns).intersection(set(df.columns))
         df_cleaned = df.drop(columns=overlap_cols, errors='ignore')
-        df3 = pd.concat([df2, df_cleaned], axis=1, join="inner")       # Соединяем таблицу из файла и таблицу из сайта в одну
+        df3 = pd.concat([df2, df_cleaned], axis=1, join="inner")  # Merging data from website and file
         return df3
         
 
@@ -70,7 +72,7 @@ class repo:
         engine = create_engine("mysql+mysqlconnector://root:@127.0.0.1:3306/repos", echo=True)
         conn = engine.connect()
         
-        #Вручную создаем таблицы, чтобы правильно задать типы данных столбцов
+        # Manually creating tables to correctly specify data types
         conn.execute(text("""                
         CREATE TABLE IF NOT EXISTS tonia (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -128,9 +130,10 @@ class repo:
         )
         """))
         conn.commit()
-        df3.to_sql(self.name, engine, if_exists = 'append',  index=False)
+        df3.to_sql(self.name, engine, if_exists='append', index=False)
 
-process = repo(name = 'tonia') # Можно выбирать между тремя индикаторами репо: tonia, trion, twina
+
+process = repo(name='tonia')  # Available indicators: tonia, trion, twina
 df = process.downloading()
 df3 = process.preprocessing(df)
 process.inserting(df3)
