@@ -33,7 +33,7 @@ class repo:
             df = df.rename(index={1 : 0})
             
         # Selenium setup settings
-        chromedriver = Service(ChromeDriverManager().install())  # Browser driver (Chrome version), can make Firefox separately if needed
+        chromedriver = Service(ChromeDriverManager().install())  # Browser driver (Chrome version)
         options = webdriver.ChromeOptions() 
         options.add_experimental_option("detach", True)
         options.add_experimental_option('excludeSwitches', ['enable-logging'])
